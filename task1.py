@@ -15,12 +15,15 @@ import numpy as np
 
 CASCADE_PATH = "face_detector.xml"
 
+# Question 1
 BRIGHTNESS_THRESHOLD = 100
 BRIGHTNESS_VALUE = 60
 
+# Question 3
 TALKING_WIDTH = 300
 TALKING_HEIGHT = 170
 
+# Question 4
 WATERMARK_THRESHOLD = 125
 
 
@@ -151,88 +154,6 @@ def increase_brightness(frame, value):
 
 
 # ==========================================================
-# QUESTION 1
-# PROCESS DAY / NIGHT VIDEO
-# ==========================================================
-
-def process_day_night_video(
-    input_video,
-    output_video
-):
-
-    """
-    1. Detect day/night
-    2. Increase brightness if nighttime
-    3. Save processed video
-    """
-
-    night = detect_day_or_night(
-        input_video
-    )
-
-    video = cv2.VideoCapture(
-        input_video
-    )
-
-    if not video.isOpened():
-        raise IOError(
-            "Cannot open video: " + input_video
-        )
-
-    width = int(
-        video.get(
-            cv2.CAP_PROP_FRAME_WIDTH
-        )
-    )
-
-    height = int(
-        video.get(
-            cv2.CAP_PROP_FRAME_HEIGHT
-        )
-    )
-
-    fps = 30.0
-
-    output = cv2.VideoWriter(
-        output_video,
-        cv2.VideoWriter_fourcc(*"MJPG"),
-        fps,
-        (width, height)
-    )
-
-    total_frames = int(
-        video.get(
-            cv2.CAP_PROP_FRAME_COUNT
-        )
-    )
-
-    for frame_count in range(total_frames):
-
-        success, frame = video.read()
-
-        if not success:
-            break
-
-        # Brighten only nighttime videos
-        if night:
-
-            frame = increase_brightness(
-                frame,
-                BRIGHTNESS_VALUE
-            )
-
-        output.write(frame)
-
-    video.release()
-    output.release()
-
-    print(
-        "Finished:",
-        output_video
-    )
-
-
-# ==========================================================
 # QUESTION 2
 # FACE DETECTION + BLURRING
 # ==========================================================
@@ -280,12 +201,70 @@ def blur_faces(
 
 
 # ==========================================================
-# QUESTION 2 + QUESTIONS 3-5
-# PROCESS STREET VIDEO
+# QUESTION 4
+# WATERMARK FUNCTION
+# ==========================================================
+
+def apply_watermark(
+    frame,
+    watermark
+):
+
+    """
+    Apply only the bright parts of the watermark.
+
+    The dark background of the watermark is removed
+    using a binary mask, leaving the bright text.
+    """
+
+    # Convert watermark to grayscale
+    gray = cv2.cvtColor(
+        watermark,
+        cv2.COLOR_BGR2GRAY
+    )
+
+    # Detect bright parts of watermark
+    _, mask = cv2.threshold(
+        gray,
+        WATERMARK_THRESHOLD,
+        255,
+        cv2.THRESH_BINARY
+    )
+
+    # Extract bright watermark text
+    watermark_text = cv2.bitwise_and(
+        watermark,
+        watermark,
+        mask=mask
+    )
+
+    # Remove watermark text area from video
+    background = cv2.bitwise_and(
+        frame,
+        frame,
+        mask=cv2.bitwise_not(mask)
+    )
+
+    # Combine original video and watermark text
+    result = cv2.add(
+        background,
+        watermark_text
+    )
+
+    return result
+
+
+# ==========================================================
+# QUESTIONS 2-5
+# PROCESS ONE VIDEO
 #
 # Flow:
 #
-# street.mp4
+# Input Video
+#     ↓
+# Day/Night Detection
+#     ↓
+# Brightness Adjustment
 #     ↓
 # Face Detection + Blurring
 #     ↓
@@ -300,7 +279,7 @@ def blur_faces(
 # Final Output
 # ==========================================================
 
-def process_street_video(
+def process_video(
     input_video,
     talking_video,
     endscreen_video,
@@ -308,6 +287,21 @@ def process_street_video(
     watermark2,
     output_video
 ):
+
+    print()
+    print("==========================================")
+    print("Processing:", input_video)
+    print("==========================================")
+
+    # ------------------------------------------------------
+    # QUESTION 1
+    # Detect whether video is day or night
+    # ------------------------------------------------------
+
+    night = detect_day_or_night(
+        input_video
+    )
+
 
     # ------------------------------------------------------
     # Load Face Detector
@@ -326,21 +320,12 @@ def process_street_video(
 
 
     # ------------------------------------------------------
-    # Open Videos
+    # Open Main Video
     # ------------------------------------------------------
 
     mainCap = cv2.VideoCapture(
         input_video
     )
-
-    talkCap = cv2.VideoCapture(
-        talking_video
-    )
-
-    endCap = cv2.VideoCapture(
-        endscreen_video
-    )
-
 
     if not mainCap.isOpened():
 
@@ -349,12 +334,30 @@ def process_street_video(
             + input_video
         )
 
+
+    # ------------------------------------------------------
+    # Open Talking Video
+    # ------------------------------------------------------
+
+    talkCap = cv2.VideoCapture(
+        talking_video
+    )
+
     if not talkCap.isOpened():
 
         raise IOError(
             "Cannot open talking video: "
             + talking_video
         )
+
+
+    # ------------------------------------------------------
+    # Open End Screen Video
+    # ------------------------------------------------------
+
+    endCap = cv2.VideoCapture(
+        endscreen_video
+    )
 
     if not endCap.isOpened():
 
@@ -433,7 +436,10 @@ def process_street_video(
         )
 
 
-    # Resize watermarks to match video
+    # ------------------------------------------------------
+    # Resize Watermarks
+    # ------------------------------------------------------
+
     wm1 = cv2.resize(
         wm1,
         (width, height)
@@ -455,6 +461,19 @@ def process_street_video(
 
         if not ret:
             break
+
+
+        # --------------------------------------------------
+        # QUESTION 1
+        # Increase brightness if nighttime
+        # --------------------------------------------------
+
+        if night:
+
+            frame = increase_brightness(
+                frame,
+                BRIGHTNESS_VALUE
+            )
 
 
         # --------------------------------------------------
@@ -512,13 +531,19 @@ def process_street_video(
 
         # --------------------------------------------------
         # QUESTION 4
-        # Add Watermarks
+        # Add Watermark 1
         # --------------------------------------------------
 
         frame = apply_watermark(
             frame,
             wm1
         )
+
+
+        # --------------------------------------------------
+        # QUESTION 4
+        # Add Watermark 2
+        # --------------------------------------------------
 
         frame = apply_watermark(
             frame,
@@ -527,7 +552,7 @@ def process_street_video(
 
 
         # --------------------------------------------------
-        # Save Frame
+        # Save Processed Frame
         # --------------------------------------------------
 
         writer.write(
@@ -579,132 +604,68 @@ def process_street_video(
 
 
 # ==========================================================
-# QUESTION 4
-# WATERMARK FUNCTION
-# ==========================================================
-
-def apply_watermark(
-    frame,
-    watermark
-):
-
-    """
-    Apply only the bright parts of the watermark.
-
-    The dark background of the watermark is removed
-    using a binary mask, leaving the bright text.
-    """
-
-    # Convert watermark to grayscale
-    gray = cv2.cvtColor(
-        watermark,
-        cv2.COLOR_BGR2GRAY
-    )
-
-
-    # Detect bright parts of watermark
-    _, mask = cv2.threshold(
-        gray,
-        WATERMARK_THRESHOLD,
-        255,
-        cv2.THRESH_BINARY
-    )
-
-
-    # Extract bright watermark text
-    watermark_text = cv2.bitwise_and(
-        watermark,
-        watermark,
-        mask=mask
-    )
-
-
-    # Remove watermark text area from video
-    background = cv2.bitwise_and(
-        frame,
-        frame,
-        mask=cv2.bitwise_not(mask)
-    )
-
-
-    # Combine original video and watermark text
-    result = cv2.add(
-        background,
-        watermark_text
-    )
-
-
-    return result
-
-
-# ==========================================================
 # MAIN PROGRAM
 # ==========================================================
 
 if __name__ == "__main__":
 
-
     # ======================================================
-    # QUESTION 1
-    # Process Four Day/Night Videos
+    # ALL FOUR VIDEOS
     # ======================================================
 
-    day_night_videos = [
+    videos = [
 
         (
             "Recorded Videos (4)/alley.mp4",
-            "processed_alley.avi"
+            "processed_alley.mp4"
         ),
 
         (
             "Recorded Videos (4)/office.mp4",
-            "processed_office.avi"
+            "processed_office.mp4"
         ),
 
         (
             "Recorded Videos (4)/singapore.mp4",
-            "processed_singapore.avi"
+            "processed_singapore.mp4"
         ),
 
         (
             "Recorded Videos (4)/traffic.mp4",
-            "processed_traffic.avi"
+            "processed_traffic.mp4"
         )
 
     ]
 
 
-    for input_video, output_video in day_night_videos:
+    # ======================================================
+    # PROCESS ALL FOUR VIDEOS
+    # ======================================================
 
-        process_day_night_video(
+    for input_video, output_video in videos:
+
+        process_video(
+
             input_video,
+
+            "talking.mp4",
+
+            "endscreen.mp4",
+
+            "watermark1.png",
+
+            "watermark2.png",
+
             output_video
+
         )
 
 
     # ======================================================
-    # QUESTIONS 2-5
-    # Process Street Video
+    # COMPLETION MESSAGE
     # ======================================================
-
-    process_street_video(
-
-        "street.mp4",
-
-        "talking.mp4",
-
-        "endscreen.mp4",
-
-        "watermark1.png",
-
-        "watermark2.png",
-
-        "output.mp4"
-
-    )
-
 
     print()
     print("==========================================")
-    print("ALL TASKS COMPLETED")
+    print("ALL FOUR VIDEOS COMPLETED")
     print("==========================================")
