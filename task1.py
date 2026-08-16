@@ -617,22 +617,22 @@ if __name__ == "__main__":
 
         (
             "Recorded Videos (4)/alley.mp4",
-            "processed_alley.mp4"
+            "processed_alley.avi"
         ),
 
         (
             "Recorded Videos (4)/office.mp4",
-            "processed_office.mp4"
+            "processed_office.avi"
         ),
 
         (
             "Recorded Videos (4)/singapore.mp4",
-            "processed_singapore.mp4"
+            "processed_singapore.avi"
         ),
 
         (
             "Recorded Videos (4)/traffic.mp4",
-            "processed_traffic.mp4"
+            "processed_traffic.avi"
         )
 
     ]
